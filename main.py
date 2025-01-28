@@ -303,7 +303,7 @@ def main():
         
         with st.spinner("Detection of separate scenes ..."):
             if not os.path.exists(scenes_splitted_video_path + f'{video_path.split("/")[-1].split(".")[0]}-Scenes.csv'):
-                os.system(f"python -m scenedetect -i {video_path} detect-content list-scenes -o {scenes_splitted_video_path} split-video -o {scenes_splitted_video_path}")
+                os.system(f'python -m scenedetect -i "{video_path}" --backend pyav detect-content list-scenes -o "{scenes_splitted_video_path}" split-video -o "{scenes_splitted_video_path}"')
 
         # cleanup_threads() 
         # gc.collect()  # Force garbage collection
@@ -315,15 +315,15 @@ def main():
         os.makedirs(bounding_boxes_path, exist_ok=True)
         if os.path.exists(f'{bounding_boxes_path}/{video_path.split("/")[-1].split(".")[0]}.json'):
             with open(f'{bounding_boxes_path}/{video_path.split("/")[-1].split(".")[0]}.json') as f:
-                bounding_box_coordinates = {int(key): tuple(value) if value is not None else None for key, value in json.load(f).items()}
-                st.session_state.total_frames  = len(bounding_box_coordinates)
+                st.session_state.bounding_box_coordinates = {int(key): tuple(value) if value is not None else None for key, value in json.load(f).items()}
+                st.session_state.total_frames  = len(st.session_state.bounding_box_coordinates)
         else:  
             if not st.session_state.get("face_detected", False):
                 with st.spinner("Face Detection for bounding boxes ..."):
                     st.session_state.face_detected = True
-                    bounding_box_coordinates = get_bounding_box_coordinates(video_path)
-                    st.session_state.total_frames  = len(bounding_box_coordinates)
-                    json_compatible_bounding_box_data = {str(key): (list(value) if value is not None else None) for key, value in bounding_box_coordinates.items()}
+                    st.session_state.bounding_box_coordinates = get_bounding_box_coordinates(video_path)
+                    st.session_state.total_frames  = len(st.session_state.bounding_box_coordinates)
+                    json_compatible_bounding_box_data = {str(key): (list(value) if value is not None else None) for key, value in st.session_state.bounding_box_coordinates.items()}
                     with open(f'{bounding_boxes_path}/{video_path.split("/")[-1].split(".")[0]}.json', 'w') as json_file:
                         json.dump(json_compatible_bounding_box_data, json_file, indent=4)
 
@@ -342,9 +342,9 @@ def main():
             start_frame = int(scene['start_time'] * st.session_state.fps)
             end_frame = int(scene['end_time'] * st.session_state.fps)
             for frame_num in range(start_frame, end_frame):
-                if frame_num not in bounding_box_coordinates.keys():
-                    bounding_box_coordinates[frame_num] = None
-                if bounding_box_coordinates[frame_num] is not None:
+                if frame_num not in st.session_state.bounding_box_coordinates.keys():
+                    st.session_state.bounding_box_coordinates[frame_num] = None
+                if st.session_state.bounding_box_coordinates[frame_num] is not None:
                     scene_count_detected += 1
             if end_frame - start_frame == 0:
                 scenes_data[i]['Broll'] = False
@@ -375,7 +375,6 @@ def main():
         if not os.path.exists(numbered_txt_file):
             for i, sent in enumerate(st.session_state.new_sentences):
                 add_sentences_to_file(f"{i}. {sent}", numbered_txt_file)
-
         
         st.session_state.sentences_splitted_by_duration = (
                 split_sentences_by_seconds(st.session_state.new_sentences, SPLIT_SENTENCE_BY_DURATION)
@@ -472,7 +471,8 @@ def main():
                     model_name="claude-3-5-sonnet-20241022",
                     api_key=os.getenv("ANTHROPIC_API_KEY"),
                 )
-                os.makedirs("claude_results", exist_ok=True)
+                claude_pred_dir = "claude_results_2_shot_prompt"
+                os.makedirs(claude_pred_dir, exist_ok=True)
                 # st.session_state.sentences_splitted_by_duration = (
                 #     split_sentences_by_seconds(st.session_state.new_sentences, SPLIT_SENTENCE_BY_DURATION)
                 # )
@@ -500,7 +500,7 @@ def main():
 
                     # Construct the JSON file path
                 audio_file_name = st.session_state.audio_file.split("/")[-1].split(".")[0]
-                json_file_path = f"claude_results/{audio_file_name}.json"
+                json_file_path = f"{claude_pred_dir}/{audio_file_name}.json"
                 if not os.path.exists(json_file_path):
                     with st.spinner("Predicting zoom points..."):
                         st.session_state.predictions = predictor.get_predictions(
@@ -624,7 +624,7 @@ def main():
                             st.session_state.fps,
                             st.session_state.height,
                             st.session_state.width,
-                            bounding_box_coordinates,
+                            st.session_state.bounding_box_coordinates,
                             st.session_state.button_clicked_ease
                         )
                     

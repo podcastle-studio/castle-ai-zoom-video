@@ -42,7 +42,7 @@ def process_scales_centers_after_extracting_boundaries(
         start_frame = start_frame_init + int(effect.zoom_in_duration * fps)
         end_frame = min(total_frames, start_frame_init + int(effect.total_duration * fps))
         values = [(key, processed_scales[key]) for key in range(start_frame, end_frame)]
-        min_zoom_key, min_zoom_scale = sorted(values, key=lambda x: x[1])[0]#[len(values) // 2]
+        min_zoom_key, min_zoom_scale = sorted(values, key=lambda x: x[1])[len(values) // 2]
         for frame_num in range(start_frame, end_frame):
             zoom_scales[frame_num] = min_zoom_scale
             if zoom_center is not None:

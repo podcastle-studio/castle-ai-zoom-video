@@ -144,6 +144,21 @@ def process_frames_worker(frame_queue, out, zoom_scales, processed_centers):
 
 def process_video(video_path: str, zoom_scales, processed_centers) -> str:
     cap = cv2.VideoCapture(video_path)
+    ret, frame = cap.read()
+    if not ret:
+        temp_video = video_path + "_temp.mp4"
+        transcode_command = [
+            "ffmpeg", "-i", video_path,
+            "-c:v", "libx264",
+            "-preset", "ultrafast",
+            "-crf", "23",
+            "-y",
+            temp_video
+        ]
+        subprocess.run(transcode_command)
+        video_path = temp_video
+    
+    cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))

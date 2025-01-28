@@ -262,12 +262,14 @@ def get_word_indices(full_text, target_text):
     target_words = target_text.strip().split()
 
     if len(target_words) <= 2:
-        threshold = 1
+        required_matches = len(target_words)
+        
+    elif len(target_words) > 2 and len(target_words) <= 4:
+        required_matches = len(target_words) -1
     else:
-        threshold = 0.95
-    required_matches = int(len(target_words) * threshold)
-    start_idx = -1
+        required_matches = len(target_words) -2
 
+    start_idx = -1
     for i in range(len(full_words) - len(target_words) + 1):
         # Slice of words to compare
         current_slice = full_words[i : i + len(target_words)]
@@ -490,7 +492,10 @@ def construct_new_sentences(
 ):
     pattern = re.compile(rf'{audio_basename.split(".")[0]}_(\d+)\.txt$')
     # Sort the file paths based on the extracted numeric part
-    emphasized_files = sorted(emphasized_files, key=lambda x: int(pattern.search(x).group(1)))
+    try:
+        emphasized_files = sorted(emphasized_files, key=lambda x: int(pattern.search(x).group(1)))
+    except:
+        print("One emphasized file")
     with open(sentence_path, "r") as file:
         sentence_content = file.read()
         
@@ -678,7 +683,7 @@ def format_word_with_opening_vandakanish(word_timings, indices):
     """
     # Split into words while preserving punctuation
     for ind in indices:
-        word_timings[ind][0] = transform_text(word_timings[ind][0], "#", end=False)
+        word_timings[ind][0] = transform_text(word_timings[ind][0], "# ", end=False)
     return word_timings
 
 def format_word_with_closing_vandakanish(word_timings, indices):
@@ -691,7 +696,7 @@ def format_word_with_closing_vandakanish(word_timings, indices):
     """
     # Split into words while preserving punctuation
     for ind in indices:
-        word_timings[ind][0] = transform_text(word_timings[ind][0], "#")
+        word_timings[ind][0] = transform_text(word_timings[ind][0], " #")
     return word_timings
 
 def new_sentence_from_words(words_data, sentence):

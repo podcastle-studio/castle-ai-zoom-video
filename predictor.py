@@ -13,13 +13,11 @@ class Predictor:
 
               # CRITICAL RULES (NO EXCEPTIONS)
 
-              1. B-ROLL PROTECTION
-              - B-roll segments are marked with `# ... #`.
-              - No zoom-ins or jump cuts may occur within or overlap any B-roll segment.
-              - Each zoom-in must be fully outside B-roll.
-              - Jump cuts must also occur outside B-roll.
-              - If no suitable space is available, return `{"zoom_moments": []}`.
-
+              1. B-ROLL RULE(NO EXCEPTIONS)
+              - Any line containing # ... # is STRICTLY OFF-LIMITS for zoom-ins and jump cuts.
+              - Do not select or overlap these lines in any way.
+              - If no valid (non-B-roll) lines exist, return {"zoom_moments": []}.
+              
               2. TIMING & DISTRIBUTION
               - Exactly one zoom-in per full minute of video.
               - Total duration = (final timestamp) - (first sentence start).
@@ -29,7 +27,7 @@ class Predictor:
               - Distribute zoom-ins evenly across non-B-roll segments.
 
               3. TRANSITION TIMING (JUMP CUTS)
-              - Place jump cuts at natural sentence/idea ends.
+              - Place jump cuts at natural ideas or sentence ends.
               - Never immediately after a zoom-in
               - If a zoom-in ends exactly at a sentence end, skip the next sentence; place the jump cut ≥2 sentence later.
 
@@ -40,37 +38,70 @@ class Predictor:
               - `# text #` = B-roll segments.
 
               5. ZOOM-IN PRIORITY (HIGHEST TO LOWEST)
-              1. Emphasized (CAPS) words/phrases followed by silence.
-              2. Important concepts starting with “but”, “and”, “so”, “if”.
-              3. Emotional questions.
-              4. Exclamations.
-              5. Emphasized words not followed by silence.
+              1. Key or newly introduced concepts that either lead into a deeper explanation 
+                 or follow from an explanation culminating in an important idea or conclusion
+              2. Emphasized (CAPS) words/phrases followed by silence highlighting an important concept or moment in the conversation 
+              3. Key emotional questions.
+              4. Exclamations as a response to and important message.
+              5. Important concepts starting with “but”, “and”, “so”, “if”.
 
-              6. MANDATORY PROCEDURE
+              # PRIORITY APPLICATION GUIDELINES
+              1. **Step 1: Identify and select from Priority #1 (Highest Priority).**
+                - Search the transcript for **key or newly introduced concepts** that either lead into or follow from an explanation culminating in an important idea or conclusion.
+                - Select as many valid zoom-in candidates from this category as needed (or as available).
+                - If the required number of zoom-ins is reached here, stop. Otherwise, continue to Step 2.
+              2. **Step 2: Allocate from Pooled Priorities (Emphasized / Emotional Questions / Exclamations).**
+                - Combine the following priorities into a single pool:
+                  - **Emphasized (CAPS) words/phrases followed by silence highligthing an important concept**
+                  - **Emotional questions**
+                  - **Exclamations**
+                - Distribute remaining zoom-ins among these categories according to:
+                  - **60%** from Emphasized (CAPS) words/phrases followed by silence
+                  - **20%** from Emotional questions
+                  - **20%** from Exclamations
+                - If a category cannot fill its quota, distribute leftover "slots" among the other pooled categories in descending order of priority.
+              3. **Step 3: Fill Remaining Slots with Lower Priorities.**
+                - If additional zoom-ins are still needed, proceed to the next lower priorities in order:
+                  - Important concepts starting with "but", "and", "so", "if"
+                - Continue until you reach the required number of zoom-ins or exhaust all possibilities.
+              4. **Other Rules Still Apply (Unchanged).**
+                - **B-roll protection**: No zoom-ins or transitions may overlap B-roll.
+                - **Exact count & distribution**: Maintain exactly one zoom-in per full minute of video, distributed as evenly as possible.
+                - **Transition timing**: Place jump cuts at natural idea or sentence ends, respecting spacing rules.
+                - **Conflict resolution**: When overlaps occur, higher-priority candidates override lower-priority ones.       
+              
+              6. JUMP CUT REASONS
+                - 1. The idea ends
+                - 2. After 2+ sentences
+              
+              7. MANDATORY PROCEDURE
               - Pre-Analysis:
                 - Identify B-roll segments.
                 - Calculate required zoom-ins.
                 - Confirm adequate non-B-roll intervals.
               - Identification:
                 - Find candidate zoom-in points by priority.
-                - Exclude any overlapping B-roll.
               - Selection & Spacing:
                 - Ensure each zoom-in is properly spaced.
                 - Evenly distribute if possible; else maximize evenness.
+                - Choose a priority reason from the above priority points
               - Transition Analysis:
-                - Place jump cuts after natural breaks.
+                - Place jump cuts ONLY after idea ends or 2+ sentences later.
+                - Choose a transition reason from the above jump cut reasons
                 - Avoid B-roll overlap.
 
-              7. OUTPUT FORMAT (JSON)
+              8. OUTPUT FORMAT (JSON)
               - Return:
-                  { "zoom_moments": [ 
+                  { "zoom_moments":
+                       [ 
                           { "sentence_number": <int>,
-                            "zoom_in_phrase": "<exact phrase>",
-                            "reason": "<why chosen>",
+                            "zoom_in_phrase": "<exact phrase which BELONGS to the sentence>",
+                            "priority reason": "<select from priority points>",
                             "transition_sentence_number": <int>,
-                            "transition_sentence_word": "<exact phrase>",
-                            "transition_reason": "<why chosen>" } 
-                            ] 
+                            "transition_sentence_word": "<exact phrase which BELONGS to the transition sentence>",
+                            "transition_reason": "<select from the 2 jump cut reasons>"
+                            } 
+                        ] 
                   }
 
               - If no zoom-ins: `{"zoom_moments": []}`
@@ -86,29 +117,33 @@ class Predictor:
 
               # EXAMPLES
 
-              Example 1:
-
-              { "zoom_moments": [
-                      { "sentence_number": 28,
-                        "zoom_in_phrase": "but this CHANGES EVERYTHING",
-                        "reason": "Conjunction + emphasis", 
-                        "transition_sentence_number": 30, 
-                        "transition_sentence_word": "Let's",
-                        "transition_reason": "Natural break, The jump cut rules are applied" } 
-                        ] 
+              { "zoom_moments":
+                [
+                  { 
+                      "sentence_number": 28,
+                      "zoom_in_phrase": "Curiosity sparks growth and innovation",
+                      "priority_reason": "Key or newly introduced concept", 
+                      "transition_sentence_number": 31, 
+                      "transition_sentence_word": "Failure is a stepping",
+                      "transition_reason": "The idea ends"
+                  } 
+                ] 
               }
-
               Example 2:
 
-              { "zoom_moments": [ 
-                  { "sentence_number": 15,
-                  "zoom_in_phrase": "SUCCESS", 
-                  "reason": "Emphasized word + pause",
-                  "transition_sentence_number": 17, 
-                  "transition_sentence_word": "concluded",
-                  "transition_reason": "Natural break, spacing met" } 
-                  ] 
+              { "zoom_moments": 
+                [ 
+                  { 
+                    "sentence_number": 15,
+                    "zoom_in_phrase": "EVERY single thing in your life you want to capture", 
+                    "priority_reason": "Emphasized key principle followed by silence ",
+                    "transition_sentence_number": 18, 
+                    "transition_sentence_word": "Given that",
+                    "transition_reason": "After 2+ sentences" 
+                  } 
+                ] 
               }
+         
             """
         
 #         self.system_prompt = """You are an intelligent assistant who helps to identify zoom-in moments in a video transcript.
@@ -698,7 +733,11 @@ class ClaudeAdapter(Predictor):
               max_tokens=4000,
               temperature=0.7,
               top_p=0.9,
-              system=self.system_prompt,
+              system=[{
+                "type": "text",
+                "text": self.system_prompt,
+                "cache_control": {"type": "ephemeral"}
+      }],
               messages=messages,
           )
           out = self.extract_json(message.content[0].text)
