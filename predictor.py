@@ -5,7 +5,8 @@ import json
 
 
 class Predictor:
-    def __init__(self, model_name, api_key):
+    def __init__(self, model_name, api_key, num_of_zoom_points_per_minute):
+        self.num_of_zoom_points_per_minute = num_of_zoom_points_per_minute
         self.model_name = model_name
         self.api_key = api_key
         self.system_prompt = """  
@@ -13,41 +14,35 @@ class Predictor:
 
               # CRITICAL RULES (NO EXCEPTIONS)
 
-              1. B-ROLL RULE(NO EXCEPTIONS)
-              - Any line containing # ... # is STRICTLY OFF-LIMITS for zoom-ins and jump cuts.
-              - Do not select or overlap these lines in any way.
-              - If no valid (non-B-roll) lines exist, return {"zoom_moments": []}.
-              
-              2. TIMING & DISTRIBUTION
+              1. TIMING & DISTRIBUTION
               - Exactly one zoom-in per full minute of video.
               - Total duration = (final timestamp) - (first sentence start).
               - Convert to minutes and decide:
                 - If fractional part > 0.5, round up; else round down.
                 - Example: 120.13s ≈ 2.002m → 2 zoom-ins; 598.13s ≈ 9.96m → 10 zoom-ins.
-              - Distribute zoom-ins evenly across non-B-roll segments.
+              - Distribute zoom-ins evenly across the transcript.
 
-              3. TRANSITION TIMING (JUMP CUTS)
+              2. TRANSITION TIMING (JUMP CUTS)
               - Place jump cuts at natural ideas or sentence ends.
               - Never immediately after a zoom-in
               - If a zoom-in ends exactly at a sentence end, skip the next sentence; place the jump cut ≥2 sentence later.
 
-              4. TRANSCRIPT FORMAT
+              3. TRANSCRIPT FORMAT
               - CAPITALIZED words = emphasis.
               - `[...s]` indicates pause duration.
               - Start/End times at sentence ends.
-              - `# text #` = B-roll segments.
 
-              5. ZOOM-IN PRIORITY (HIGHEST TO LOWEST)
+              4. ZOOM-IN PRIORITY (HIGHEST TO LOWEST)
               1. Key or newly introduced concepts that either lead into a deeper explanation 
                  or follow from an explanation culminating in an important idea or conclusion
               2. Emphasized (CAPS) words/phrases followed by silence highlighting an important concept or moment in the conversation 
               3. Key emotional questions.
               4. Exclamations as a response to and important message.
-              5. Important concepts starting with “but”, “and”, “so”, “if”.
+              5. Important concepts starting with "but", "and", "so", "if".
 
               # PRIORITY APPLICATION GUIDELINES
               1. **Step 1: Identify and select from Priority #1 (Highest Priority).**
-                - Search the transcript for **key or newly introduced concepts** that either lead into or follow from an explanation culminating in an important idea or conclusion.
+                - Search for **key or newly introduced concepts** that either lead into or follow from an explanation culminating in an important idea or conclusion.
                 - Select as many valid zoom-in candidates from this category as needed (or as available).
                 - If the required number of zoom-ins is reached here, stop. Otherwise, continue to Step 2.
               2. **Step 2: Allocate from Pooled Priorities (Emphasized / Emotional Questions / Exclamations).**
@@ -65,20 +60,17 @@ class Predictor:
                   - Important concepts starting with "but", "and", "so", "if"
                 - Continue until you reach the required number of zoom-ins or exhaust all possibilities.
               4. **Other Rules Still Apply (Unchanged).**
-                - **B-roll protection**: No zoom-ins or transitions may overlap B-roll.
                 - **Exact count & distribution**: Maintain exactly one zoom-in per full minute of video, distributed as evenly as possible.
                 - **Transition timing**: Place jump cuts at natural idea or sentence ends, respecting spacing rules.
                 - **Conflict resolution**: When overlaps occur, higher-priority candidates override lower-priority ones.       
               
-              6. JUMP CUT REASONS
+              5. JUMP CUT REASONS
                 - 1. The idea ends
                 - 2. After 2+ sentences
               
-              7. MANDATORY PROCEDURE
+              6. MANDATORY PROCEDURE
               - Pre-Analysis:
-                - Identify B-roll segments.
                 - Calculate required zoom-ins.
-                - Confirm adequate non-B-roll intervals.
               - Identification:
                 - Find candidate zoom-in points by priority.
               - Selection & Spacing:
@@ -88,9 +80,8 @@ class Predictor:
               - Transition Analysis:
                 - Place jump cuts ONLY after idea ends or 2+ sentences later.
                 - Choose a transition reason from the above jump cut reasons
-                - Avoid B-roll overlap.
 
-              8. OUTPUT FORMAT (JSON)
+              7. OUTPUT FORMAT (JSON)
               - Return:
                   { "zoom_moments":
                        [ 
@@ -106,12 +97,8 @@ class Predictor:
 
               - If no zoom-ins: `{"zoom_moments": []}`
 
-              8. B-ROLL VERIFICATION
-              - Identify all `# ... #` segments as protected.
-              - Ensure no zoom-in or jump cut overlaps these zones.
-
-              9. FINAL CHECK
-              - Verify all spacing, durations, and no B-roll conflicts.
+              
+              8. FINAL CHECK
               - Confirm phrases, sentence numbers, transitions.
               - Ensure total zoom-ins match the calculated requirement.
 
@@ -143,7 +130,7 @@ class Predictor:
                   } 
                 ] 
               }
-         
+  
             """
         
 #         self.system_prompt = """You are an intelligent assistant who helps to identify zoom-in moments in a video transcript.
@@ -641,8 +628,8 @@ class Predictor:
     
 
 class GPTAdapter(Predictor):
-    def __init__(self, model_name, api_key):
-        super().__init__(model_name, api_key)
+    def __init__(self, model_name, api_key, num_of_zoom_points_per_minute = 3):
+        super().__init__(model_name, api_key, num_of_zoom_points_per_minute)
         self.client = OpenAI(
             api_key=api_key,
         )
@@ -733,12 +720,8 @@ class ClaudeAdapter(Predictor):
               max_tokens=4000,
               temperature=0.7,
               top_p=0.9,
-              system=[{
-                "type": "text",
-                "text": self.system_prompt,
-                "cache_control": {"type": "ephemeral"}
-      }],
-              messages=messages,
+              system=self.system_prompt,
+              messages=messages
           )
           out = self.extract_json(message.content[0].text)
           predictions.append(out)

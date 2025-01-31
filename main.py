@@ -471,7 +471,7 @@ def main():
                     model_name="claude-3-5-sonnet-20241022",
                     api_key=os.getenv("ANTHROPIC_API_KEY"),
                 )
-                claude_pred_dir = "claude_results_2_shot_prompt"
+                claude_pred_dir = "claude_results_without_broll"
                 os.makedirs(claude_pred_dir, exist_ok=True)
                 # st.session_state.sentences_splitted_by_duration = (
                 #     split_sentences_by_seconds(st.session_state.new_sentences, SPLIT_SENTENCE_BY_DURATION)
