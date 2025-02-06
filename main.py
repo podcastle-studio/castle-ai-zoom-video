@@ -44,8 +44,12 @@ _ = load_dotenv(find_dotenv())
 st.set_option("deprecation.showfileUploaderEncoding", False)
 warnings.filterwarnings("ignore")
 
-SPLIT_SENTENCE_BY_DURATION = 120  * 5
-ZOOM_DURATION = 0.7
+os.environ["STREAMLIT_SERVER_MAX_UPLOAD_SIZE"] = "250"
+
+SPLIT_SENTENCE_BY_DURATION = 120  * 2.5
+
+if "zoom_duration" not in st.session_state:
+    st.session_state.zoom_duration = 0.7 
 
 def cleanup_threads():
     current_thread = threading.current_thread()
@@ -396,8 +400,27 @@ def main():
             st.session_state.zoom_effects = None
         if "output_path" not in st.session_state:
             st.session_state.output_path = None
-            
+
+        if "number_of_zoom_points" not in st.session_state:
+            st.session_state.number_of_zoom_points = None
+                
+        st.markdown("### Select the number of zoom points per minute:")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            if st.button("1 Zoom", key="zoom_points_1"):
+                st.session_state.number_of_zoom_points = 1
+        with col2:
+            if st.button("2 Zoom", key="zoom_points_2"):
+                st.session_state.number_of_zoom_points = 2
+        with col3:
+            if st.button("3 Zoom", key="zoom_points_3"):
+                st.session_state.number_of_zoom_points = 3
+        with col4:
+            if st.button("4 Zoom", key="zoom_points_4"):
+                st.session_state.number_of_zoom_points = 4           
         col1, col2 = st.columns(2)
+
+        
         #ChatGPT predictions
         with col1:
             if st.button("GPT Predictions"):
@@ -460,59 +483,60 @@ def main():
                         #     )
                     #     with open(json_file_path, "w") as f:
                     #         json.dump(st.session_state.predictions, f)
-                    
-
         
         # st.write(st.session_state)
         with col2:
             if st.button("Claude Predictions"):
                 st.session_state.button_clicked = "claude_predictions"
-                predictor = ClaudeAdapter(
-                    model_name="claude-3-5-sonnet-20241022",
-                    api_key=os.getenv("ANTHROPIC_API_KEY"),
-                )
-                claude_pred_dir = "claude_results_without_broll"
-                os.makedirs(claude_pred_dir, exist_ok=True)
-                # st.session_state.sentences_splitted_by_duration = (
-                #     split_sentences_by_seconds(st.session_state.new_sentences, SPLIT_SENTENCE_BY_DURATION)
-                # )
-                # st.session_state.splitted_words = split_words_by_duration(
-                #     word_data,
-                #     [len(sen) for sen in st.session_state.sentences_splitted_by_duration],
-                # )
-                # splitted_sentences = [
-                #     [f"{i}. {sentence}" for i, sentence in enumerate(sentences, start=1)]
-                #     for sentences in st.session_state.sentences_splitted_by_duration
-                # ]
 
-                # os.makedirs("claude_results", exist_ok=True)  
-                # st.session_state.sentences_splitted_by_duration = (
-                #     split_sentences_by_seconds(st.session_state.new_sentences, SPLIT_SENTENCE_BY_DURATION)
-                # )
-                # st.session_state.splitted_words = split_words_by_duration(
-                #     word_data,
-                #     [len(sen) for sen in st.session_state.sentences_splitted_by_duration],
-                # )
-                # splitted_sentences = [
-                #     [f"{i}. {sentence}" for i, sentence in enumerate(sentences, start=1)]
-                #     for sentences in st.session_state.sentences_splitted_by_duration
-                # ]
+                if st.session_state.number_of_zoom_points is not None:
+                    predictor = ClaudeAdapter(
+                        model_name="claude-3-5-sonnet-20241022",
+                        api_key=os.getenv("ANTHROPIC_API_KEY"),
+                        num_of_zoom_points_per_minute = st.session_state.number_of_zoom_points 
+                                                        )
+                    claude_pred_dir = f"claude_results_version_1.2_{st.session_state.number_of_zoom_points}"
+                    os.makedirs(claude_pred_dir, exist_ok=True)
+                    # st.session_state.sentences_splitted_by_duration = (
+                    #     split_sentences_by_seconds(st.session_state.new_sentences, SPLIT_SENTENCE_BY_DURATION)
+                    # )
+                    # st.session_state.splitted_words = split_words_by_duration(
+                    #     word_data,
+                    #     [len(sen) for sen in st.session_state.sentences_splitted_by_duration],
+                    # )
+                    # splitted_sentences = [
+                    #     [f"{i}. {sentence}" for i, sentence in enumerate(sentences, start=1)]
+                    #     for sentences in st.session_state.sentences_splitted_by_duration
+                    # ]
+
+                    # os.makedirs("claude_results", exist_ok=True)  
+                    # st.session_state.sentences_splitted_by_duration = (
+                    #     split_sentences_by_seconds(st.session_state.new_sentences, SPLIT_SENTENCE_BY_DURATION)
+                    # )
+                    # st.session_state.splitted_words = split_words_by_duration(
+                    #     word_data,
+                    #     [len(sen) for sen in st.session_state.sentences_splitted_by_duration],
+                    # )
+                    # splitted_sentences = [
+                    #     [f"{i}. {sentence}" for i, sentence in enumerate(sentences, start=1)]
+                    #     for sentences in st.session_state.sentences_splitted_by_duration
+                    # ]
 
                     # Construct the JSON file path
-                audio_file_name = st.session_state.audio_file.split("/")[-1].split(".")[0]
-                json_file_path = f"{claude_pred_dir}/{audio_file_name}.json"
-                if not os.path.exists(json_file_path):
-                    with st.spinner("Predicting zoom points..."):
-                        st.session_state.predictions = predictor.get_predictions(
-                            splitted_sentences, num_inputs=len(splitted_sentences)
-                        )
-                        out_message = prediction_checks(st.session_state.predictions,
-                                          st.session_state.sentences_splitted_by_duration, 
-                                          st.session_state.splitted_words,
-                                          broll_boundaries,
-                                          int(st.session_state.total_frames/st.session_state.fps/60),
-                                          word_data
-                                          )
+                    audio_file_name = st.session_state.audio_file.split("/")[-1].split(".")[0]
+                    json_file_path = f"{claude_pred_dir}/{audio_file_name}.json"
+                    if not os.path.exists(json_file_path):
+                        with st.spinner("Predicting zoom points..."):
+                            st.session_state.predictions = predictor.get_predictions(
+                                splitted_sentences, num_inputs=len(splitted_sentences)
+                            )
+                            out_message = prediction_checks(st.session_state.predictions,
+                                            st.session_state.sentences_splitted_by_duration, 
+                                            st.session_state.splitted_words,
+                                            broll_boundaries,
+                                            int(st.session_state.total_frames/st.session_state.fps/60),
+                                            word_data
+                                            )
                         # if out_message:
                         #     st.write(out_message)
                         #     st.session_state.predictions = predictor.get_predictions(
@@ -522,32 +546,32 @@ def main():
                         #     out_message = out_message
                         #         )
                             
-                        with open(json_file_path, "w") as f:
-                            json.dump(st.session_state.predictions, f)
-                    st.success(f"Predictions saved to {json_file_path}")
-                else:
-                    with open(json_file_path, "r") as f:
-                        st.session_state.predictions = json.load(f)
-                    st.info(f"Loaded existing predictions from {json_file_path}")
-                    
-                    # out_message = prediction_checks(st.session_state.predictions,
-                    #                       st.session_state.sentences_splitted_by_duration, 
-                    #                       st.session_state.splitted_words, 
-                    #                       broll_boundaries,
-                    #                       int(st.session_state.total_frames/st.session_state.fps/60),
-                    #                       word_data
-                    #                       )
-                    # if out_message:
-                    #     st.write(out_message)
-                    #     st.session_state.predictions = predictor.get_predictions(
-                    #                                     splitted_sentences,
-                    #                                     num_inputs=len(splitted_sentences), 
-                    #                                     prev_preds=st.session_state.predictions,
-                    #                                     out_message = out_message
-                    #         )
-                    #     with open(json_file_path, "w") as f:
-                    #         json.dump(st.session_state.predictions, f)
-            # st.session_state.predictions = predictions
+                            with open(json_file_path, "w") as f:
+                                json.dump(st.session_state.predictions, f)
+                        st.success(f"Predictions saved to {json_file_path}")
+                    else:
+                        with open(json_file_path, "r") as f:
+                            st.session_state.predictions = json.load(f)
+                        st.info(f"Loaded existing predictions from {json_file_path}")
+                        
+                        # out_message = prediction_checks(st.session_state.predictions,
+                        #                       st.session_state.sentences_splitted_by_duration, 
+                        #                       st.session_state.splitted_words, 
+                        #                       broll_boundaries,
+                        #                       int(st.session_state.total_frames/st.session_state.fps/60),
+                        #                       word_data
+                        #                       )
+                        # if out_message:
+                        #     st.write(out_message)
+                        #     st.session_state.predictions = predictor.get_predictions(
+                        #                                     splitted_sentences,
+                        #                                     num_inputs=len(splitted_sentences), 
+                        #                                     prev_preds=st.session_state.predictions,
+                        #                                     out_message = out_message
+                        #         )
+                        #     with open(json_file_path, "w") as f:
+                        #         json.dump(st.session_state.predictions, f)
+                # st.session_state.predictions = predictions
 
         if st.session_state.predictions:
 
@@ -597,7 +621,21 @@ def main():
             
             # Display currently selected easing function
             st.write(f"Selected easing function: {st.session_state.button_clicked_ease}")
-            
+
+            # Define a default zoom duration
+
+            # Create buttons for selecting zoom duration
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                if st.button("0.5s Zoom", key="zoom_0.5"):
+                    st.session_state.zoom_duration = 0.5
+            with col2:
+                if st.button("0.7s Zoom", key="zoom_0.7"):
+                    st.session_state.zoom_duration = 0.7
+            with col3:
+                if st.button("1s Zoom", key="zoom_1"):
+                    st.session_state.zoom_duration = 1.0
+                        
             # Process button to start video processing
             if st.button("Process Video", key="process_video_btn"):
                 try:
@@ -606,7 +644,7 @@ def main():
                             st.session_state.predictions,
                             st.session_state.sentences_splitted_by_duration,
                             st.session_state.splitted_words,
-                            zoom_in_duration=ZOOM_DURATION,
+                            zoom_in_duration=st.session_state.zoom_duration,
                             slow=False,
                             jumpcut=True,
                             hold=True,
@@ -617,7 +655,7 @@ def main():
                                 f"{int(effect.start_time//60)}m{int(effect.start_time%60)}s"
                             )
                     
-                    with st.spinner("Process zooms after face detection ..."):
+                    with st.spinner(f"Process zooms after face detection with duration = {st.session_state.zoom_duration}"):
                         zoom_scales, processed_centers = process_zoom_scales_centers_after_extracting_boundaries(
                             zoom_effects,
                             st.session_state.total_frames,
