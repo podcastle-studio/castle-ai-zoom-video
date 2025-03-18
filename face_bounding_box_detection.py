@@ -47,22 +47,6 @@ def expand_bounding_box(
 
     return (expanded_x, expanded_y, expanded_w, expanded_h)
 
-import mediapipe as mp
-import cv2
-import streamlit as st
-from concurrent.futures import ThreadPoolExecutor
-from queue import Queue
-import logging
-import time
-from collections import defaultdict
-
-logging.basicConfig(level=logging.INFO)
-
-mp_face_detection = mp.solutions.face_detection
-face_detection = mp_face_detection.FaceDetection(
-    model_selection=0, min_detection_confidence=0.5
-)
-
 def get_bounding_box(frame):
     if frame is None:
         return None

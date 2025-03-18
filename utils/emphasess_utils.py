@@ -5,17 +5,18 @@ from emphassess.src.emphasis_classifier.utils.infer_utils import (
     Wav2Vec2ForAudioFrameClassification,
 )
 import torch
+import time
 
 def process_file(f, splitted_audio_txt_dir, model, device=None):
     # Get predictions and emphasis boundaries for the audio file
     pred, emph_boundaries = infer_audio(f, model, device)
-    print("Emphasis boundaries (in seconds): ", emph_boundaries)
+    # print("Emphasis boundaries (in seconds): ", emph_boundaries)
     
     # Get the base name of the audio file
     output_filename = f.split("/")[-1].split(".")[0] + ".txt"
-
     # Write the results to the output text file
     with open(os.path.join(splitted_audio_txt_dir, output_filename), "w") as f_out:
+        print(os.path.join(splitted_audio_txt_dir, output_filename))
         for start, end in emph_boundaries:
             f_out.write(f"{start:.2f}-{end:.2f}\n")
 
@@ -31,6 +32,7 @@ def save_emphasis_predictions(files, splitted_audio_txt_dir, device=None):
         print(len(files))
         
         if device is None:
+            #device="cpu"
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 

@@ -11,6 +11,8 @@ from glob import glob
 from span_api_splitter.utils import get_split_info
 from span_api_splitter import config
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -305,15 +307,6 @@ def add_silence_duration(word_data):
                 w.append(0)
         start = w[2]
 
-
-import torchaudio as ta
-import librosa
-import os
-from concurrent.futures import ThreadPoolExecutor
-from tqdm import tqdm
-import numpy as np
-from dataclasses import dataclass
-from typing import List, Tuple
 
 @dataclass
 class Segment:

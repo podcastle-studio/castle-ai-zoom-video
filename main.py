@@ -27,7 +27,7 @@ from utils.audio_text_utils import (
 )
 from utils.emphasess_utils import save_emphasis_predictions
 import json
-from predictor import ClaudeAdapter, GPTAdapter
+from predictor import ClaudeAdapter, GPTAdapter, DeepseekAdapter
 from zoom_effect import ZoomEffect, process_video
 from dotenv import load_dotenv, find_dotenv
 import warnings
@@ -229,12 +229,12 @@ def main():
                 st.session_state["asr_client_settings"] = get_client_settings()
 
             output_file_path_sentence = st.session_state.audio_file.replace(
-                "recordings", "transcriptions"
+                "recordings", "transcriptions_new"
             ).replace(".mp3", "_trancriptions_with_align_sentence.txt")
             os.makedirs(os.path.dirname(output_file_path_sentence), exist_ok=True)
 
             output_file_path_words = st.session_state.audio_file.replace(
-                "recordings", "transcriptions"
+                "recordings", "transcriptions_new"
             ).replace(".mp3", "_trancriptions_with_align_words.json")
             (
                 st.session_state.interview_to_transcription_meta_sentence,
@@ -279,17 +279,17 @@ def main():
         # time.sleep(1)
         # Run emphasis model and change the sentence txt file
         files = glob(f"{splitted_audio_dir}/*.mp3")
-        splitted_audio_txt_dir = f"./uploaded_files/emphasis_detection/{video_path.split('/')[-1].split('.')[0]}"
-        
+        splitted_audio_txt_dir = f"./new_segments_long_5_seocnds/{video_path.split('/')[-1].split('.')[0]}"
+        import time
+        sta = time.time()
         with st.spinner("Detection of emphasized phrases..."):
             save_emphasis_predictions(files, splitted_audio_txt_dir)
-        
+        print("Time taken to preprocess all audios: ", time.time()-sta)
         # cleanup_threads() 
         # gc.collect()  # Force garbage collection
 
         # Give system a moment to fully release resources
         # time.sleep(1)
-        
         audio_basename = os.path.basename(st.session_state.audio_file)
         # add silence duration to the words
         # with open(st.session_state.interview_to_transcription_meta_words) as f:
@@ -359,6 +359,7 @@ def main():
 
         # Change the sentence capitalization
         emphasis_files = glob(f"{splitted_audio_txt_dir}/*.txt")
+        print(len(emphasis_files))
         sentence_info_path_updated = output_file_path_sentence.replace(
             ".txt", "_updated.txt"
         )
@@ -418,7 +419,7 @@ def main():
         with col4:
             if st.button("4 Zoom", key="zoom_points_4"):
                 st.session_state.number_of_zoom_points = 4           
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
 
         
         #ChatGPT predictions
@@ -495,7 +496,7 @@ def main():
                         api_key=os.getenv("ANTHROPIC_API_KEY"),
                         num_of_zoom_points_per_minute = st.session_state.number_of_zoom_points 
                                                         )
-                    claude_pred_dir = f"claude_results_version_1.2_{st.session_state.number_of_zoom_points}"
+                    claude_pred_dir = f"claude_results_version_1.2_5sec_audios_{st.session_state.number_of_zoom_points}"
                     os.makedirs(claude_pred_dir, exist_ok=True)
                     # st.session_state.sentences_splitted_by_duration = (
                     #     split_sentences_by_seconds(st.session_state.new_sentences, SPLIT_SENTENCE_BY_DURATION)
@@ -537,6 +538,94 @@ def main():
                                             int(st.session_state.total_frames/st.session_state.fps/60),
                                             word_data
                                             )
+                        # if out_message:
+                        #     st.write(out_message)
+                        #     st.session_state.predictions = predictor.get_predictions(
+                        #     splitted_sentences,
+                        #     num_inputs=len(splitted_sentences),
+                        #     prev_preds=st.session_state.predictions, 
+                        #     out_message = out_message
+                        #         )
+                            
+                            with open(json_file_path, "w") as f:
+                                json.dump(st.session_state.predictions, f)
+                        st.success(f"Predictions saved to {json_file_path}")
+                    else:
+                        with open(json_file_path, "r") as f:
+                            st.session_state.predictions = json.load(f)
+                        st.info(f"Loaded existing predictions from {json_file_path}")
+                        
+                        # out_message = prediction_checks(st.session_state.predictions,
+                        #                       st.session_state.sentences_splitted_by_duration, 
+                        #                       st.session_state.splitted_words, 
+                        #                       broll_boundaries,
+                        #                       int(st.session_state.total_frames/st.session_state.fps/60),
+                        #                       word_data
+                        #                       )
+                        # if out_message:
+                        #     st.write(out_message)
+                        #     st.session_state.predictions = predictor.get_predictions(
+                        #                                     splitted_sentences,
+                        #                                     num_inputs=len(splitted_sentences), 
+                        #                                     prev_preds=st.session_state.predictions,
+                        #                                     out_message = out_message
+                        #         )
+                        #     with open(json_file_path, "w") as f:
+                        #         json.dump(st.session_state.predictions, f)
+                # st.session_state.predictions = predictions
+        
+        with col3:
+            if st.button("Deepseek Predictions"):
+                st.session_state.button_clicked = "deepseek_predictions"
+
+                if st.session_state.number_of_zoom_points is not None:
+                    predictor = DeepseekAdapter(
+                        model_name="unsloth/Llama-3.3-70B-Instruct-bnb-4bit",
+                        api_key=None,
+                        num_of_zoom_points_per_minute = st.session_state.number_of_zoom_points 
+                                                        )
+                    deepseek_pred_dir = f"deepseek_results_{st.session_state.number_of_zoom_points}"
+                    os.makedirs(deepseek_pred_dir, exist_ok=True)
+                    # st.session_state.sentences_splitted_by_duration = (
+                    #     split_sentences_by_seconds(st.session_state.new_sentences, SPLIT_SENTENCE_BY_DURATION)
+                    # )
+                    # st.session_state.splitted_words = split_words_by_duration(
+                    #     word_data,
+                    #     [len(sen) for sen in st.session_state.sentences_splitted_by_duration],
+                    # )
+                    # splitted_sentences = [
+                    #     [f"{i}. {sentence}" for i, sentence in enumerate(sentences, start=1)]
+                    #     for sentences in st.session_state.sentences_splitted_by_duration
+                    # ]
+
+                    # os.makedirs("claude_results", exist_ok=True)  
+                    # st.session_state.sentences_splitted_by_duration = (
+                    #     split_sentences_by_seconds(st.session_state.new_sentences, SPLIT_SENTENCE_BY_DURATION)
+                    # )
+                    # st.session_state.splitted_words = split_words_by_duration(
+                    #     word_data,
+                    #     [len(sen) for sen in st.session_state.sentences_splitted_by_duration],
+                    # )
+                    # splitted_sentences = [
+                    #     [f"{i}. {sentence}" for i, sentence in enumerate(sentences, start=1)]
+                    #     for sentences in st.session_state.sentences_splitted_by_duration
+                    # ]
+
+                    # Construct the JSON file path
+                    audio_file_name = st.session_state.audio_file.split("/")[-1].split(".")[0]
+                    json_file_path = f"{deepseek_pred_dir}/{audio_file_name}.json"
+                    if not os.path.exists(json_file_path):
+                        with st.spinner("Predicting zoom points..."):
+                            st.session_state.predictions = predictor.get_predictions(
+                                splitted_sentences, num_inputs=len(splitted_sentences)
+                            )
+                            # out_message = prediction_checks(st.session_state.predictions,
+                            #                 st.session_state.sentences_splitted_by_duration, 
+                            #                 st.session_state.splitted_words,
+                            #                 broll_boundaries,
+                            #                 int(st.session_state.total_frames/st.session_state.fps/60),
+                            #                 word_data
+                            #                 )
                         # if out_message:
                         #     st.write(out_message)
                         #     st.session_state.predictions = predictor.get_predictions(
